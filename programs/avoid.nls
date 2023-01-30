@@ -1,0 +1,17 @@
+@
+* Obstacle avoidance programma
+@
+variabele x = 0;
+variabele afstand = lees afstandsensor;
+zolang (x != 1) { # Oneindige lus
+   afstand = lees afstandsensor;
+   als (afstand > 15) {
+      motor voorwaarts 150;
+      slaap 0.1;
+   } anders {
+      motor achterwaarts 150;
+      slaap 0.2;
+      motor links 150;
+      slaap 0.3;
+   };
+};

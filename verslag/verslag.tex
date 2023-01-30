@@ -1,0 +1,401 @@
+\documentclass[12pt, titlepage]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{alltt}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\lstset{
+  basicstyle=\footnotesize,       
+  breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+  breaklines=true,                 % sets automatic line breaking
+  commentstyle=\color{gray},    % comment style
+  deletekeywords={...},            % if you want to delete keywords from the given language
+  frame=single,	                   % adds a frame around the code
+  extendedchars=true,
+  keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+  keywordstyle=\color{blue},       % keyword style
+  language=Haskell,                 % the language of the code
+  otherkeywords={*,...},           % if you want to add more keywords to the set
+  numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+  numbersep=5pt,                   % how far the line-numbers are from the code
+  numberstyle=\tiny , % the style that is used for the line-numbers
+  rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+  showstringspaces=false,          % show spaces everywhere adding particular underscores
+}
+
+\setcounter{secnumdepth}{4}
+\titleformat{\paragraph}
+{\normalfont\normalsize\bfseries}{\theparagraph}{1em}{}
+\titlespacing*{\paragraph}
+{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
+
+\newcommand{\at}{\makeatletter @\makeatother}
+
+
+\begin{document}
+\title{Project Functioneel Programmeren}
+\author{Amory Hoste, Arne Goeteyn}
+\date{}
+\maketitle
+
+\tableofcontents
+
+\newpage
+\section{Inleiding}
+\label{sec:inleiding}
+Voor dit project hebben we een programmeertaal ontworpen die geïnterpreteerd kan worden met behulp van een zelf ontwikkelde parser en interpreter. Met behulp van de interpreter kunnen programma's uitgevoerd worden die de echte robot besturen of deze laten rondrijden in een fictieve wereld. De ontwikkelde taal heet \emph{NlScript} of kortweg \emph{nls} en is grotendeels gebaseerd op de \emph{JavaScript} syntax. De keywords zijn echter vertaald naar het Nederlands om de taal voor (nederlands sprekende) beginnende programmeurs zo makkelijk mogelijk te houden. Moeilijke constructies zijn dus zo veel mogelijk vermeden en we hebben ervoor gekozen om de taal zo overzichtelijk mogelijk te houden. Voor de taakverdeling heeft Arne Goeteyn voor de simulator gezorgd en heeft Amory Hoste de programmeertaal (parser en interpreter) geïmplementeerd.
+
+\newpage
+\section{Syntax van de taal}
+\label{sec:syntax_van_de_taal}
+\begin{alltt}
+-- Expressies --
+<Exp>           ::= <BExp> | <AExp> | <Var> | <SensorReq>
+
+<AExp>          ::= Float | <AExp> <AOp> <AExp>
+
+<AOp>           ::= + | - | * | /
+
+<BExp>          ::= Bool | <AExp> <ComOp> <AExp> | <BExp> <BOp> <BExp>
+
+<Bool>          ::= Waar | Vals
+
+<BOp>           ::= en | of
+
+<ComOp>         ::= < | <= | > | >= | == | !=
+
+<Var>           ::= [A-Z][a-z]*
+
+<SensorReq>     ::= lees <SensorType>
+
+<SensorType>    ::= 'afstandsensor' | 'lijnsensor'
+
+'afstandsensor' ::= LinksZwart | RechtsZwart | BeideZwart | BeideWit
+
+'lijnsensor'    ::= Float
+
+-- Statements --
+<Stmt>          ::= <Declare> | <Assign> | <Cond> | <Loop> | <Command> | <Comment>
+
+<Declare>       ::= variabele <Var> = <Exp>;
+
+<Assign>        ::= <Var> = <Exp>;
+
+<Cond>          ::= als ( <Exp> ) { <Stmt> } [anders { <Stmt> }; | ;]
+
+<Loop>          ::= zolang ( <Exp> ) { <Stmt> };
+
+<Command>       ::= slaap Float | motor <Direction> Float | zetled <side> <Color>
+
+<Direction>     ::= voorwaarts | achterwaarts | stop | <Side>
+
+<Side>          ::= links | rechts
+
+<Color>         ::= Rood | Groen | Blauw | Wit
+
+<Comment>       ::= # [^#,newline,@]* newline | @ [^#,newline,@]* @
+
+\end{alltt}
+
+\section{Semantiek van de taal}
+\label{sec:semantiek_van_de_taal}
+Programma's in onze taal bestaan uit een opeenvolging van statements. Deze statements kunnen dan weer andere statements en/of expressies bevatten. In \ref{sec:statements} zullen we de verschillende soorten statements beschrijven en in \ref{sec:expressies} zullen we de expressies beschrijven.
+
+\subsection{Statements}
+\label{sec:statements}
+
+\begin{description}
+
+\item{\bf Declaraties} beginnen met het sleutelwoord \texttt{variabele} gevolgd door de naam van deze variabele, een gelijkheidsteken, een bepaalde expressie die in deze variabele opgeslaan moet worden en een puntkomma. Variabelen moeten beginnen met een kleine letter en na een deze declaratie zal de variabele beschikbaar zijn doorheen het volledige programma. Er is dus geen scoping en bij een dubbele declaratie zal de variabele de waarde van de laatste declaratie krijgen.
+\newline
+\begin{lstlisting}
+    variabele getal = 1 + 2;
+    variabele boolean = Waar;
+\end{lstlisting}
+ 
+ 
+\item{\bf Assignaties} zijn bijna identiek aan declaraties met het enige verschil dat het sleutelwoord \texttt{variabele} weggelaten wordt. De bedoeling van een assignatie is om de waarde van een variabele te veranderen. Het is niet verplicht om een variabele te initialiseren met behulp van een declaratie, maar dit wordt echter wel sterk aangeraden om de code zo expliciet mogelijk te houden.
+\newline
+\begin{lstlisting}
+    getal = getal + 3;
+    boolean = Vals;
+\end{lstlisting}
+
+\item{\bf Conditionals} beginnen met het sleutelwoord \texttt{als}, gevolgd door een bepaalde expressie tussen haakjes, een openende accolade en een aantal statements. Een assignatie wordt afgesloten met een sluitende accolade en een puntkomma. Indien gewenst kan ook een 'else clause' toegevoegd worden met behulp van het sleutelwoord \texttt{anders}. Bij een conditional wordt de expressie tussen de haakjes geëvalueerd. Indien deze Waar is of een waarde verschillend van nul teruggeeft zal deze de statements in de 'if clause' evalueren. Indien de expressie Vals of de waarde nul is, dan zal indien de conditional een 'else clause' heeft deze uitgevoerd worden. Anders zullen de statements binnen de conditional gewoonweg niet uitgevoerd worden.
+\newline
+\begin{lstlisting}
+    als (x < 3) {
+    	x = x + 1;
+    };
+    als (y == Waar) {
+    	launch = Waar;
+    	z = z * 3;
+    } anders {
+    	launch = Vals;
+    	z = z / 3;
+    };
+\end{lstlisting}
+
+\item{\bf Lussen} beginnen met het sleutelwoord \texttt{zolang}, gevolgd door een bepaalde expressie tussen haakjes, een openende accolade en een aantal statements. Na deze statements volgt nog een sluitende accolade en een puntkomma. Zolang de expressie binnen de haakjes naar waar of een getal verschillend van nul evalueert, zullen de statements binnen de lus blijven uitgevoerd worden.
+\newline
+\begin{lstlisting}
+    zolang (x < 10) {
+    	x = x + 1;
+    };
+\end{lstlisting}
+
+\item{\bf Commando's} kunnen we opsplitsen in drie soorten. We hebben motorcommando's, led-commando's en een slaapcommando. Met een motorcommando kan men de robot in een bepaalde richting laten rijden met een bepaalde snelheid. Een motorcommando begint met het sleutelwoord sleutelwoord \texttt{motor} gevolgd door een richting (links, rechts, voorwaarts, achterwaarts of stop) en eventueel nog een getal tussen 0 en 255 dat de snelheid aangeeft. Indien geen snelheid meegegeven wordt, wordt deze standaard op nul gezet. Met behulp van de led-commando's kunnen we de leds van de robot een bepaalde kleur geven. Led-commando's beginnen met het sleutelwoord \texttt{zetled}, gevolgd door een zijde (links of rechts) en een kleur (rood, groen, blauw of wit). Ten slotte hebben we nog slaapcommando's die beginnen met het sleutelwoord \texttt{slaap} gevolgd door een tijd in seconden die aangeeft hoelang het programma moet wachten om het volgende statement uit te voeren.
+\newline
+\begin{lstlisting}
+    motor links 100;
+    motor voorwaarts 200;
+    zetled rechts groen;
+    zetled links blauw;
+    slaap 10;
+\end{lstlisting}
+
+\item{\bf Commentaar} kunnen we opsplitsen in multi line commentaar en single line commentaar. Multi line commentaar wordt ingesloten door een \texttt{\at} teken en kan meerdere lijnen bevatten. Single line commentaar begint met een \texttt{\#} gevolgd door de commentaar en wordt afgesloten op het einde van de lijn. Alles wat binnen commentaar staat wordt simpelweg niet uitgevoerd.
+\newline
+\begin{lstlisting}
+    # Dit is commentaar op 1 enkele lijn
+    @
+    Dit is commentaar over  
+    meerdere lijnen
+    @
+\end{lstlisting}
+\end{description}
+\newpage
+\subsection{Expressies}
+\label{sec:expressies}
+\begin{description}
+\item{\bf Opmerking:} in expressies kunnen overal haakjes gebruikt worden.
+
+\item{\bf Variabelen} kunnen overal in een expressie ingevuld worden. Indien deze variabele vooraf gedeclareerd werd zal zijn overeenkomstige waarde ingevuld worden. Indien dit niet zo is zal de evaluatie van het programma falen.
+\newline
+\begin{lstlisting}
+    getal + 1
+\end{lstlisting}
+
+\item{\bf Booleans} worden intern voorgesteld door een getal. \texttt{Waar} wordt voorgesteld als 1 en \texttt{Vals} als 0. Dit heeft als gevolg dat je alle normale operaties van expressies ook op booleans kan gebruiken. Naast deze operaties zijn er nog 2 speciale operaties voor booleans gedefinieerd: \texttt{en} en \texttt{of}. Deze zijn identiek als de logische \texttt{and} en \texttt{or} in andere programmeertalen
+\newline
+\begin{lstlisting}
+    Waar of Vals
+    Waar en Vals
+\end{lstlisting}
+
+\item{\bf Getallen} worden intern steeds voorgesteld als floats, maar kunnen ook als natuurlijk getal in het programma geschreven worden. Op deze getallen zijn de optelling (\texttt{+}), aftrekking (\texttt{-}), vermenigvuldiging (\texttt{*}) en de gehele deling (\texttt{/}) gedefinieerd.
+\newline
+\begin{lstlisting}
+    1.321
+    4
+    1 / 3 # -> 0.333333
+    1 + 3 # -> 4
+    1 - 3 # -> -2
+    1 * 3 # -> 3
+\end{lstlisting}
+
+\item{\bf Sensoropvragingen} zijn een beetje gelijkaardig aan variabele in de zin dat deze ook geëvalueerd worden naar een bepaalde waarde. Deze worden echter niet uit de gedeclareerde variabelen gehaald, maar worden tijdens uitvoering opgevraagd aan de robot. De declaratie van een opvraging begint met het sleutelwoord \texttt{lees} gevolgd door een sleutelwoord dat aangeeft van welke sensor data opgevraagd moet worden. Bij de lijnsensor is dit dus het woord \texttt{lijnsensor} en bij de afstandsensor het woord \texttt{afstandsensor}. De opvraging van een lijnsensor geeft een \texttt{Float} terug met de afstand naar een object voor de sensor van de robot en een opvraging van de lijnsensor geeft respectievelijk \texttt{LinksZwart, RechtsZwart, BeideZwart} of \texttt{BeideWit} terug, afhankelijk van wat de linker en rechtersensor zien.
+\newline
+\begin{lstlisting}
+    lees afstandsensor   # Getal met afstand
+    lees lijnsensor      # LinksZwart, RechtsZwart, BeideZwart of BeideWit
+\end{lstlisting}
+
+\end{description}
+\newpage
+\section{Voorbeelden programma's}
+\label{sec:voorbeelden_programma_s}
+\subsection{Police}
+\emph{De broncode van dit programma kan teruggevonden worden in sectie \ref{subsec:police}.}
+\newline
+\newline
+Dit programma is zeer eenvoudig. Eerst beginnen we met een oneindige lus om het programma te laten blijven lopen. Dit doen we door een variabele \texttt{x} op 0 te zetten en ons eigenlijke statements in een while lus te zetten die blijft doorgaan tot \texttt{x} gelijk is aan 1. Indien we \texttt{x} dus nooit verhogen hebben we een oneindige lus. Naast een variabele \texttt{x} houden we ook een booleaanse variabele \texttt{i} bij. In onze lus hebben we een 'if-else' statement staan die kijkt of de variabele \texttt{i} Waar of Vals is. Indien hij waar is zetten we de linkerled op rood, de rechter op blauw en wachten we een halve seconde. Daarna zetten we de variabele \texttt{i} op valse zodat bij de volgende uitvoering van de lus het andere deel van het 'if-else' statement zal uitgevoerd worden. Op het einde van elke lus slapen we ook nog een halve seconde met behulp van het commando \texttt{slaap} zodat de lichten niet te snel van kleur wisselen.
+
+\subsection{Line following}
+\emph{De broncode van dit programma kan teruggevonden worden in sectie \ref{subsec:line}.}
+\newline
+\newline
+Voor de line following gebruiken we net zoals bij het police programma een oneindige lus om ons programma te laten blijven uitvoeren. Hiernaast houden we ook nog een variabele sensor bij waarin we bij elke nieuwe iteratie van de lus de status van de lijnsensor steken. Naast deze variabele sensor houden we ook nog een variabele laatst bij. Deze geeft aan of we laatst naar links of rechts zijn gedraaid zodat wanneer beide sensoren zich niet meer op de lijn bevinden, de robot de lijn eenvoudig kan terugvinden. In de oneindige lus lezen we dus telkens de huidige status van de lijnsensor in de variabele lijnsensor in waarna we alle mogelijke gevallen van de lijnsensor afhandelen. Indien beide sensoren zwart aangeven betekent dit dat we mooi op de lijn zitten en rijden we gewoon rechtdoor. Indien enkel de linker sensor zwart is zitten we iets te veel rechts van de lijn en rijden we naar links, daarnaast geven we aan in de variabele laatst dat we laatst naar links zijn gereden. Hetzelfde doen we wanneer enkel de rechtersensor zwart aangeeft, maar dan met rechts in plaats van links. Indien beide sensoren wit aangeven, bevinden we ons niet meer op de lijn en rijden we in de richting waar laatst de lijn gezien werd.
+
+\subsection{Obstacle avoidance}
+\emph{De broncode van dit programma kan teruggevonden worden in sectie \ref{subsec:avoid}.}
+\newline
+\newline
+Voor de obstacle avoidance gebruiken we net zoals bij het police programma een oneindige lus om ons programma te laten blijven uitvoeren. Hiernaast houden we ook nog een variabele afstand bij waarin we bij elke nieuwe iteratie van de lus de huidige afstand, uitgelezen door de afstandsensor opslaan. Hiernaast kijken we telkens indien deze afstand kleiner dan 15 is. Indien dit het geval is zitten we redelijk dicht bij een obstakel en rijden we 0.2 seconden achteruit (met snelheid 150) en draaien we 0.3 seconden naar links. Indien de afstand groter dan 15 is rijden we gewoonweg voorwaarts.
+
+
+\newpage
+\section{Implementatie}
+\label{sec:implementatie}
+\subsection{Programmeertaal}
+In volgende secties vindt u een overzicht van alle belangrijke punten van de implementatie van de parser en interpreter.
+
+\subsubsection{Parser}
+Voor de parser heb ik mijn inspiratie opgedaan uit de parser besproken in de slides, en de uitstekende paper \textit{Functional Pearls - Monadic Parsing in Haskell} van Graham Hutton en Erik Meijer\footnote{http://www.cs.nott.ac.uk/pszgmh/pearl.pdf}. Hiernaast heb ik nog vele extra functionaliteiten toegevoegd om het parsen zo eenvoudig mogelijk te maken.
+\newline
+\newline
+De parser heb ik opgesplitst in 3 delen: in het bestand \texttt{Parser.hs} (zie sectie \ref{subsec:parser}) heb ik een basis parser gedefinieerd met verschillende basis-functies die in elke soort parser wel van pas kunnen komen. Deze parser heb ik dan gebruikt in het bestand \texttt{ProgramParser.hs} (zie sectie \ref{subsec:programparser}) om functies te definiëren die meer specifiek zijn voor het parsen van een programmeertaal. Alle datatypes en gereserveerde sleutelwoorden om de taal te parsen werden gedefinieerd in de het bestand \texttt{Parserdata.hs} (zie sectie \ref{subsec:parserdata}).
+
+\paragraph{Parser.hs - Sec \ref{subsec:parser}}
+\begin{description}
+
+\item{\bf Regel 72 - 79:} Hier zijn twee functies \texttt{sepby} en \texttt{sepby1} gedefinieerd. Deze passen herhaaldelijk een parser \texttt{p} toe, gescheiden door de applicatie van een parser \texttt{sep}, waarvan het resultaat wordt weggegooid. \texttt{Sepby} mag een lege lijst als resultaat hebben terwijl \texttt{sepby1} minstens 1 element moet bevatten.
+\newline
+\item{\bf Regel 84 - 94:} Hier zijn twee functies \texttt{chainl} en \texttt{chainl1} gedefinieerd. Deze passen herhaaldelijk een parser \texttt{p} toe, gescheiden door applicaties van een andere parser \texttt{op} (operator) die links associatief is en gebruikt wordt om de resultaten van twee parsers te combineren. Net zoals bij sepby mag \texttt{chainl} een lege lijst als resultaat hebben terwijl dit bij \texttt{chainl1} niet toegestaan is.
+\end{description}
+
+
+\paragraph{ProgramParser.hs - Sec \ref{subsec:programparser}}
+\begin{description}
+
+\item{\bf Regel 101 - 114:} Hier worden onze normale (volledige) expressies, \texttt{fexp} samengesteld uit een \texttt{chainl1} van een \texttt{rexp} en een \texttt{boolop}. De \texttt{rexp} worden dan ook weer verder samengesteld uit andere expressies. Het parsen van expressies is op deze manier gedefinieerd om ervoor te zorgen de operatoren in de juiste volgorde geëvalueerd worden. Dit betekent: eerst booleaanse operatoren (\texttt{boolop}), dan vergelijkingsoperatoren (\texttt{relop}), dan \texttt{+} en \texttt{-} (\texttt{addop}) en ten slotte \texttt{*} en \texttt{/} (\texttt{mulop}).
+\newline
+\item{\bf Regel 117-118:} Hier is een hulpfunctie \texttt{ops xs} gedefinieerd die een lijst met een parser en een bepaalde operator meekrijgt. Deze zal de meegekregen operatoren te proberen parsen.
+\newline
+\item{\bf Regel 137-144:} Hier is een functie \texttt{stmt} gedefinieerd die statements parsed. Statements worden steeds gescheiden door puntkomma's en indien er meerdere statements kunnen geparsed worden zal deze die parsen naar een \texttt{Seq[Stmt]}. Indien er slechts één statement geparsed wordt zal deze gewoon een parser van Stmt teruggeven.
+\end{description}
+
+\paragraph{ParserData.hs - Sec \ref{subsec:parserdata}}
+De code spreekt hier redelijk voor zich en er vallen hier bijgevolg dus niet echt veel opmerkingen over te maken.
+
+\subsubsection{Interpreter}
+\begin{description}
+
+\item{\bf Regel 29-33:} In onze state monad zullen we een \texttt{Mem} (Memory) opslaan. Dit is een eenvoudige map die een \texttt{Variable} (String) mapt op een \texttt{Value} (Float). Deze values zijn altijd floats om het parsen en interpreteren efficiënt en eenvoudig te houden en omdat dit voor de noden van het project voldoende was. Aan de interpreter monad is ook een ReaderT toegevoegd om makkelijk het device van de Mbot / simulator te kunnen opvragen met behulp van \texttt{ask}.
+\newline
+\item{\bf Regel 38-84:} Hier worden onze expressies geëvalueerd. Indien er een variabele tegengekomen wordt, wordt deze opgevraagd aan de state. Sensor statements worden opgevraagd aan de MBot.
+\newline
+\item{\bf Regel 95-117:} Hier worden de statements uitgevoerd. Bij een toekenning en declaratie worden de variabelen en waarden in de map in onze state gestoken, bij conditionals worden de voorwaarden gecontroleerd. Bij een lus wordt eerst de voorwaarde geëvalueerd en indien deze voldaan is wordt er een nieuwe sequentie (\texttt{Seq[ ]} uitgevoerd met de statements in de lus en op het einde opnieuw de lus zodat deze na het uitvoeren van de statements in de lus opnieuw geëvalueerd kan worden.
+\newline
+\item{\bf Regel 151-170:} In de main functie worden eerst de commandolijn argumenten en een \texttt{Device} opgevraagd. Daarna wordt de functie runprogram met het eerste commandolijn argument en de \texttt{Device} opgeroepen. De functie runprogram zal eerst het programma parsen met behulp van \texttt{Parseprogram}, waarna hij de functie runInterp oproept. Wij zijn ervan uitgegaan dat er in de commandolijn enkel de naam van het programma zonder extensie moet worden meegegeven en de corresponderende map en extensie worden automatisch aangevuld in het programma zelf. In de functie \texttt{runInterp} wordt de geparste AST uitgevoerd met de eerder gedefinieerde \texttt{exec} waarna deze wordt 'uitgepakt en uitgevoerd' met behulp van \texttt{runreaderT} en \texttt{runStateT} om zo een \texttt{IO ((), Mem)} terug te krijgen. Aan de reader wordt de \texttt{Device} meegegeven en aan de state wordt een lege \texttt{Map} meegegeven. Na het uitvoeren van het programma kunnen de teruggegeven memory ook opgevraagd worden in de main met behulp van \texttt{<- runProgram (head args) d} waarna dit geprint kan worden. Wij hebben dit echter niet gedaan omdat dit voor onze programma's niet nodig was, maar dit is een zeer eenvoudige toevoeging.
+\end{description}
+
+\subsection{Simulator}
+
+\subsubsection{Parsen van de wereld}
+\label{ssub:parsen_van_de_wereld}
+Dit gebeurt in de file \texttt{WorldParser.hs} 
+Het parsen van de wereld is grotendeels gebaseerd op de oefening sobokan vanuit de practica.
+We maken een wereld die bestaat uit: een robot, een lijst van lijnen, een lijst van muren en een lijst van omheiningen.
+De robot bestaat uit een locatie, een rotatie, een tuple van motoren en een lijst van leds.
+
+Welke wereld ingelezen wordt hebben we gehardcode. We wouden geen extra argument opvragen voor de locatie van de wereldfile. Dit om de Simulator- en de Interpreter Mains zo gelijk mogelijk te houden.
+Indien gewenst kan er nog een andere wereld ingeladen worden. Dit kan door in de functie \texttt{openMBot} van de file \texttt{SimulateCommands.hs} in de where world aan te passen naar de gewenste wereld. 
+In de folder \texttt{src/worlds} staan er enkel werelden in die wij extra gemaakt hebben voor enkele tests beter te kunnen uitvoeren.
+
+\subsubsection{Renderen van de wereld.}
+\label{ssub:renderen_van_de_wereld_}
+Dit gebeurt in de file \texttt{WorldRenderer.hs}.
+Ook dit deel is voor een groot stuk gebaseerd op de oefening sobokan.
+We maken gebruik van \texttt{simulateIO} van de gloss bibliotheek.
+
+De rendermethode geeft alle entiteiten die op het veld moeten geplaatst worden een bitmap. 
+De bitmap van onze robot bestaat uit een extern ingeladen bitmap van een auto en 2 cirkels met een kleur. 
+De kleur van de cirkels wordt at runtime bepaald.
+In het begin van het project besloten we om met een afbeelding van een robot te werken. Hier zijn we echter van afgestapt omdat de echte MBot niet vierkant is zoals onze bitmap.
+Voor de muren gebruikten we een bitmap van een muur.
+Voor de omheining gebruikten we een bitmap van lava.
+
+De update-methode doet 3 dingen:
+\begin{enumerate}
+    \item Inlezen van mogelijke commando's (via MVar)
+    \item Uitschrijven van opgevraagde sensoren (via MVar)
+    \item Het rijden van de robot
+\end{enumerate}
+
+Het inlezen en uitschrijven wordt later besproken.
+
+Voor het rijden van de robot gebruiken we de formules meegegeven in de opgave. 
+Als de robot \emph{voor het grootste deel} van zijn lichaam in een niet doordringbaar blokje zit zal hij botsen en een stukje achteruit springen.
+
+\subsubsection{Connectie tussen de threads}
+\label{ssub:connectie_tussen_de_threads}
+Voor de connectie tussen de progamma en de simulatiethread maken we gebruik van 3 MVar's.
+1 per sensor en 1 voor een commando dat verstuurt wordt.
+Een commando dat verstuurt wordt heeft een bepaalde identifier (zoals RGB) en een lijst van argumenten. Zo kan de code die het commando afhandeld gemakkelijk weten wat hij met de argumenten moet doen.
+Als de identifier een opvraag voor een sensor is veranderd er niks aan de robot maar wordt in de correcte sensor-MVar de uitgelezen waarde uitgeschreven.
+
+\newpage
+\section{Conclusie}
+\label{sec:conclusie}
+
+\subsection{Programmeertaal}
+\label{sub:programmeertaal}
+Door de parser en interpreter te schrijven heb ik zeer veel bijgeleerd over monads en monad transformers. Ik heb het gevoel dat ik nu echt wel goed door heb hoe transformers intern precies werken. Het was ook zeer interessant om eens zelf een taal te schrijven aangezien dit een probleem is waarvan ik niet direct zou weten hoe ik eraan moet beginnen. In haskell was dit echter dankzij de monads en monad-transformers zeer goed doenbaar. Ik zou er niet aan willen denken want een warboel dit zou geven om dit in een niet-functionele programmeertaal zoals \texttt{Java} te implementeren. Enkele nuttige uitbreidingen zouden zijn om juiste scoping te definiëren binnen lussen, conditionals ... en om betere errors terug te geven met behulp van de \texttt{ExceptT} monad transformer. Ook zou het nog nuttig zijn om Booleans intern niet voor te stellen als Floats zodat het niet mogelijk is om deze bij elkaar op te tellen.
+
+\subsection{Simulator}
+\label{sub:simulator}
+In de simulator kan er soms nog door muren gereden worden. Dit omdat de collision detection nog niet helemaal 100 procent op punt staat. Zolang de auto voor minder dan 50 percent in een ondoordringbare cel rijdt gaat de simulator hem laten doorrijden. Ook de lijnsensoren geven soms nog niet helemaal perfecte waarden terug wat je een beetje kan zien aan de manier waarop de robot een lijn volgt.
+
+\newpage
+\appendix
+\section{Broncode}
+\label{sec:broncode}
+\subsection{Programmeertaal}
+
+\subsubsection{Parser.hs}
+\label{subsec:parser}
+\lstinputlisting[language=Haskell]{../src/Parser.hs}
+
+\subsubsection{Parserdata.hs}
+\label{subsec:parserdata}
+\lstinputlisting[language=Haskell]{../src/Parserdata.hs}
+
+\subsubsection{ProgramParser.hs}
+\label{subsec:programparser}
+\lstinputlisting[language=Haskell]{../src/ProgramParser.hs}
+
+\subsubsection{Interpreter.hs}
+\label{subsec:interpreter}
+\lstinputlisting[language=Haskell]{../src/Interpreter.hs}
+ 
+\subsubsection{police.nls}
+\label{subsec:police}
+\lstinputlisting{../programs/police.nls}
+
+\subsubsection{line.nls}
+\label{subsec:line}
+\lstinputlisting{../programs/line.nls}
+
+\subsubsection{avoid.nls}
+\label{subsec:avoid}
+\lstinputlisting{../programs/avoid.nls}
+
+\subsection{Simulator}
+
+\subsubsection{WorldRenderer.hs}
+\label{subsec:interpreter}
+\lstinputlisting[language=Haskell]{../src/WorldRenderer.hs}
+
+\subsubsection{WorldParser.hs}
+\label{subsec:interpreter}
+\lstinputlisting[language=Haskell]{../src/WorldParser.hs}
+
+\subsubsection{RobotManipulator.hs}
+\label{subsec:interpreter}
+\lstinputlisting[language=Haskell]{../src/RobotManipulator.hs}
+
+\subsubsection{SimulateCommands.hs}
+\label{subsec:interpreter}
+\lstinputlisting[language=Haskell]{../src/SimulateCommands.hs}
+
+\subsubsection{SimulatorSensors.hs}
+\label{subsec:interpreter}
+\lstinputlisting[language=Haskell]{../src/SimulatorSensors.hs}
+
+\subsubsection{Simulator.hs}
+\label{subsec:interpreter}
+\lstinputlisting[language=Haskell]{../src/Simulator.hs}
+
+\end{document}

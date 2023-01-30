@@ -1,0 +1,59 @@
+// Dit is commentaar op één lijn
+
+@
+Dit is commentaar over
+meerdere lijnen
+@
+
+// Variabelen
+variabele x = 1
+
+// Booleans
+variabele a = Waar
+variabele b = Vals
+(a en b)  // -> Vals
+(a of b)  // -> Waar
+
+// Operatoren (haakjes mogen overal gebruikt worden waar nodig)
+variabele a = 1
+variabele b = 2
+(a < b)   // -> Waar
+(a > b)   // -> Vals
+(a == b)  // -> Vals
+(a != b)  // -> Waar
+(a <=)    // -> Waar
+(a >= b)  // -> Vals
+(a + b)   // -> 3
+(a * b)   // -> 2
+(a / b)   // -> 0.5
+(a - b)   // -> -1
+
+// Loops
+zolang (a < b) {
+	
+}
+
+// Conditionals
+als (a < b) {
+	
+} anders {
+	
+}
+
+// Sturen van motors, snelheid [0, 255]
+motor links 100
+motor rechts 255
+motor voorwaarts 1
+motor achterwaarts 1
+motor stop
+
+slaap sec
+
+// Uitlezen sensoren
+lees afstandsensor   // Getal met afstand
+lees lijnsensor      // LinksZwart | RechtsZwart | BeideZwart | BeideWit
+
+// Sturen leds
+// Kleuren: [R,G,B] (waarden tussen [0, 100]) of rood groen blauw wit
+zetled links [100, 0, 50]
+zetled rechts [10, 3, 54]

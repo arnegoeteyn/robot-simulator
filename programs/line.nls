@@ -1,0 +1,28 @@
+@
+* Line following programma
+@
+variabele x = 0;
+variabele sensor = lees lijnsensor;
+variabele laatst = LinksZwart;
+
+zolang (x != 1) { # Oneindige lus
+   sensor = lees lijnsensor;
+   als (sensor == BeideZwart) {
+      motor voorwaarts 100;
+   };
+   als (sensor == LinksZwart) {
+      motor links 100;
+      laatst = LinksZwart;
+   };
+   als (sensor == RechtsZwart) {
+      motor rechts 100;
+      laatst = RechtsZwart;
+   };
+   als (sensor == BeideWit) {
+      als (laatst == LinksZwart) {
+         motor links 100;
+      } anders {
+         motor rechts 100;
+      };
+   };
+};

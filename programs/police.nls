@@ -1,0 +1,18 @@
+@
+* Blinking leds programma
+@
+variabele x = 0;
+variabele i = Waar;
+
+zolang (x != 1) { # Oneindige lus
+   als (i == Waar) {
+      zetled links blauw;
+      zetled rechts rood;
+      i = Vals;
+   } anders { # test
+      zetled links rood;
+      zetled rechts blauw;
+      i = Waar;
+   };
+   slaap 0.5; # Zodat leds niet te snel flikkeren
+};
